@@ -71,6 +71,7 @@ interface ParsedSortingGroup {
 	arraySpec?: Array<string>
 	outsidersGroup?: boolean // Mutually exclusive with plainSpec and arraySpec
 	itemToHide?: boolean
+	itemToIgnore?: boolean  // NEW
 	priority?: number
 	combine?: boolean
 }
@@ -277,6 +278,9 @@ const AnyTypeGroupLexeme2: string = '/%'  // See % as a combination of / and :
 const _1_AnyTypeWithExtGroupLexeme2: string = '/%.'  // See % as a combination of / and :.
 const HideItemShortLexeme: string = '--%'  // See % as a combination of / and :
 const HideItemVerboseLexeme: string = '/--hide:'
+const IgnoreItemShortLexeme: string = '--!'
+const IgnoreItemVerboseLexeme: string = '/--ignore:'
+
 
 const MetadataFieldIndicatorLexeme: string = 'with-metadata:'
 
@@ -321,6 +325,7 @@ interface SortingGroupType {
 	filenameWithExt?: boolean  // The text matching criteria should apply to filename + extension
 	foldersOnly?: boolean
 	itemToHide?: boolean
+	itemToIgnore?: boolean  // NEW
 	priority?: number
 }
 
@@ -337,7 +342,10 @@ const SortingGroupPrefixes: { [key: string]: SortingGroupType } = {
 	[AnyTypeGroupLexeme1]: {},
 	[AnyTypeGroupLexeme2]: {},
 	[HideItemShortLexeme]: {itemToHide: true},
-	[HideItemVerboseLexeme]: {itemToHide: true}
+	[HideItemVerboseLexeme]: {itemToHide: true},
+	[IgnoreItemShortLexeme]: { itemToIgnore: true },
+	[IgnoreItemVerboseLexeme]: { itemToIgnore: true }
+
 }
 
 const isThreeDots = (s: string): boolean => {
@@ -1332,24 +1340,32 @@ export class SortingSpecProcessor {
 		}
 
 		if (groupType) {
-			if (groupType.itemToHide) {
-				return {
-					itemToHide: true,
-					plainSpec: s,
-					filesOnly: groupType.filesOnly,
-					foldersOnly: groupType.foldersOnly
-				}
-			} else { // !sortingGroupType.itemToHide
-				return {
-					plainSpec: s,
-					filesOnly: groupType.filesOnly,
-					foldersOnly: groupType.foldersOnly,
-					matchFilenameWithExt: groupType.filenameWithExt,
-					priority: groupPriority ?? undefined,
-					combine: combineGroup
-				}
-			}
+		    if (groupType.itemToHide) {
+		        return {
+		            itemToHide: true,
+		            plainSpec: s,
+		            filesOnly: groupType.filesOnly,
+		            foldersOnly: groupType.foldersOnly
+		        }
+		    } else if (groupType.itemToIgnore) {   // NEW branch for ignore
+		        return {
+		            itemToIgnore: true,
+		            plainSpec: s,
+		            filesOnly: groupType.filesOnly,
+		            foldersOnly: groupType.foldersOnly
+		        }
+		    } else { // !sortingGroupType.itemToHide && !itemToIgnore
+		        return {
+		            plainSpec: s,
+		            filesOnly: groupType.filesOnly,
+		            foldersOnly: groupType.foldersOnly,
+		            matchFilenameWithExt: groupType.filenameWithExt,
+		            priority: groupPriority ?? undefined,
+		            combine: combineGroup
+		        }
+		    }
 		}
+
 
 		if ((groupPriority || combineGroup) && s !== '' ) {
 			// Edge case: line with only priority prefix or combine prefix and no other known syntax, yet some content
@@ -1743,6 +1759,26 @@ export class SortingSpecProcessor {
 		}
 		return false
 	}
+
+	private consumeParsedItemToIgnore(spec: ParsedSortingGroup): boolean { // NEW
+    if (spec.arraySpec?.length === 1) {
+        const theOnly: string = spec.arraySpec[0]
+        if (!isThreeDots(theOnly)) {
+            const nameWithExt: string = theOnly.trim()
+            if (nameWithExt) { // Sanity check
+                if (!detectSortingSymbols(nameWithExt)) {
+                    if (this.ctx.currentSpec) {
+                        const itemsToIgnore: Set<string> = this.ctx.currentSpec?.itemsToIgnore ?? new Set<string>()
+                        itemsToIgnore.add(nameWithExt)
+                        this.ctx.currentSpec.itemsToIgnore = itemsToIgnore
+                        return true
+                    }
+                }
+            }
+        }
+    }
+    return false
+}
 
 	private consumeParsedSortingGroupSpec = (spec: ParsedSortingGroup): CustomSortGroup | null => {
 		if (spec.outsidersGroup) {
