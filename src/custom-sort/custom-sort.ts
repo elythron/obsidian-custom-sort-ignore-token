@@ -749,16 +749,17 @@ const folderSortCore = function (sortedFolder: TFolder, sortOrder: string, sorti
 	const parentFolderName: string|undefined = sortedFolder.name
 	expandMacros(sortingSpec, parentFolderName)
 
-	const folderItems: Array<FolderItemForSorting> = (sortingSpec.itemsToHide ?
-		sortedFolder.children.filter((entry: TFile | TFolder) => {
-			return !sortingSpec.itemsToHide!.has(entry.name)
-		})
-		:
-		sortedFolder.children)
-		.map((entry: TFile | TFolder) => {
-			const itemForSorting: FolderItemForSorting = determineSortingGroup(entry, sortingSpec, ctx)
-			return itemForSorting
-		})
+	const folderItems: Array<FolderItemForSorting> = (sortedFolder.children // NEW
+	    .filter((entry: TFile | TFolder) => {
+	        const hide = sortingSpec.itemsToHide?.has(entry.name) ?? false
+	        const ignore = sortingSpec.itemsToIgnore?.has(entry.name) ?? false
+	        return !hide && !ignore   // skip both hidden and ignored items
+	    }))
+	    .map((entry: TFile | TFolder) => {
+	        const itemForSorting: FolderItemForSorting = determineSortingGroup(entry, sortingSpec, ctx)
+	        return itemForSorting
+	    })
+
 
 	// Finally, for advanced sorting by modified date, for some folders the modified date has to be determined
 	determineFolderDatesIfNeeded(folderItems, sortingSpec)
