@@ -98,6 +98,7 @@ export interface CustomSortSpec {
 	outsidersFilesGroupIdx?: number
 	outsidersFoldersGroupIdx?: number
 	itemsToHide?: Set<string>
+	itemsToIgnore?: Set<string> // NEW
 	priorityOrder?: Array<number>       // Indexes of groups in evaluation order
 	implicit?: boolean // spec applied automatically (e.g. auto integration with a plugin)
 }
